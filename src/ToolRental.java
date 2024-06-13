@@ -5,8 +5,8 @@ import java.time.format.DateTimeFormatter;
 import java.util.Scanner;
 import static java.time.temporal.TemporalAdjusters.firstInMonth;
 
-public class Main {
-    public static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MM/dd/yyyy");
+public class ToolRental {
+    private static final DateTimeFormatter formatter = DateTimeFormatter.ofPattern("MM/dd/yyyy");
 
     /**
      * Determines when Independence Day should be observed.
@@ -15,7 +15,7 @@ public class Main {
      * @param independenceDay the actual holiday, July 4 of a given year
      * @return LocalDate object for the date Independence day is observed
      */
-    private static LocalDate getObservedIndependenceDay(LocalDate independenceDay) {
+    protected LocalDate getObservedIndependenceDay(LocalDate independenceDay) {
         LocalDate observedIndependenceDay = independenceDay;
         if (independenceDay.getDayOfWeek().equals(DayOfWeek.SATURDAY)) {
             observedIndependenceDay = observedIndependenceDay.plusDays(-1);
@@ -34,7 +34,7 @@ public class Main {
      * @param dueDate the date the tool is due back
      * @return int representation of the number of days the customer will be charged
      */
-    private int getNumChargeDays(
+    protected int getNumChargeDays(
             int numRentalDays,
             Tool rentedTool,
             LocalDate checkoutDate,
@@ -54,14 +54,14 @@ public class Main {
     }
 
     /**
-     * Rounds currency value to the nearest hundredths value.
-     * Multiply input by 100 to shift decimal and use Math.round() to handle rounding.
-     * Then divide by 100.0 to shift decimal back.
+     * Rounds currency value to the nearest hundredths value
+     * Multiply input by 100 to shift decimal and use Math.round() to handle rounding
+     * Then divide by 100.0 to shift decimal back
      *
      * @param amount un-rounded value representing a currency amount
      * @return input amount rounded to the nearest hundredth
      */
-    private double roundCurrencyValue(double amount) {
+    protected double roundCurrencyValue(double amount) {
         long rounded = Math.round(amount * 100);
         return rounded / 100.0;
     }
@@ -72,11 +72,11 @@ public class Main {
      * Independence Day: July 4 - Observed on closest weekday if it falls on a weekend
      * Labor Day: the first Monday in September
      *
-     * @param startDate beginning of date range.
-     * @param endDate end of date range.
-     * @return int value representing the number of holidays in the date range provided.
+     * @param startDate beginning of date range
+     * @param endDate end of date range
+     * @return int value representing the number of holidays in the date range provided
      */
-    private int numHolidaysInRange(LocalDate startDate, LocalDate endDate) {
+    protected int numHolidaysInRange(LocalDate startDate, LocalDate endDate) {
         int numHolidays = 0;
         int startDateYear = startDate.getYear();
         Month startDateMonth = startDate.getMonth();
@@ -138,16 +138,14 @@ public class Main {
         return numHolidays;
     }
 
-
-
     /**
-     * Determines the number of weekend days in a given date range.
+     * Determines the number of weekend days in a given date range
      *
-     * @param startDate beginning of date range.
-     * @param rentalDays the number of days following the start date.
+     * @param startDate beginning of date range
+     * @param rentalDays the number of days following the start date
      * @return the number of weekend days in the given date range
      */
-    private int numWeekendDaysInRange(LocalDate startDate, int rentalDays) {
+    protected int numWeekendDaysInRange(LocalDate startDate, int rentalDays) {
         int numWeekendDays = 0;
         DayOfWeek startDateDayOfWeek = startDate.getDayOfWeek();
         int numFullWeeks = rentalDays / 7;
@@ -159,23 +157,91 @@ public class Main {
         /*
             DayOfWeek.getValue() returns an int representation of the day of week
             Monday = 1 ... Sunday = 7
-            If this value + the number of days that do not make up a full week
-            is equal to 6, we know there is an additional Saturday. >= 7 indicates
-            that another full weekend is in the date range.
+
+            Cases where one additional weekend day should be included:
+            * dayOfWeekInt + numAdditionalDays == 6 (i.e. Friday (5) + 1 additional day)
+            * day of week is Sunday (7) with the maximum (6) additional days -> 7 + 6 = 13
+            * day of week is Saturday (6) and there are one or more additional days
+
+            Cases where 2 additional weekend days should be included:
+            * day of week is Monday-Friday (1-5) and the sum of dayOfWeekInt + numAdditionalDays >= 7
+                (i.e. Friday (5) + 2 additional days)
          */
-        if (startDateDayOfWeek.getValue() + numAdditionalDays == 6) {
+        int dayOfWeekInt = startDateDayOfWeek.getValue();
+        if (dayOfWeekInt + numAdditionalDays == 6 || dayOfWeekInt + numAdditionalDays == 13 || (dayOfWeekInt == 6 && numAdditionalDays > 0)) {
             numWeekendDays++;
-        } else if (startDateDayOfWeek.getValue() + numAdditionalDays >= 7) {
+        } else if (dayOfWeekInt + numAdditionalDays >= 7 && dayOfWeekInt < 6) {
             numWeekendDays += 2;
         }
 
         return numWeekendDays;
     }
 
+    /**
+     * Generates Rental Agreement instance with user-provided data
+     *
+     * @param code ToolCode for the tool being rented
+     * @param numRentalDays number of days tool will be rented for
+     * @param discountPercent int representation of discount percentage to be applied
+     * @param checkoutDate the date the tool is being rented
+     * @return RentalAgreement instance based on input
+     */
+    public RentalAgreement generateRentalAgreement (
+            ToolCode code,
+            int numRentalDays,
+            int discountPercent,
+            LocalDate checkoutDate
+    ) throws Exception {
+        // Handle bad input
+        if (discountPercent > 100 || discountPercent < 0) {
+            throw new Exception("The discount percent must be a whole number between 0-100.");
+        }
+
+        if (numRentalDays < 1) {
+            throw new Exception("The minimum rental period for a tool is 1 day.");
+        }
+
+        Tool rentedTool;
+
+        // Set rented tool based on tool code provided.
+        switch (code) {
+            case CHNS -> rentedTool = new Chainsaw();
+            case LADW -> rentedTool = new Ladder();
+            default -> rentedTool = new Jackhammer(code);
+        }
+
+        // Set due date to numRentalDays after the checkout date
+        LocalDate dueDate = checkoutDate.plusDays(numRentalDays);
+
+        // Calculate the number of days charges apply, from day after rental through due date.
+        int numChargeDays = getNumChargeDays(numRentalDays, rentedTool, checkoutDate, dueDate);
+
+        double preDiscountCharge = roundCurrencyValue(rentedTool.dailyCharge * numChargeDays);
+        double discountAmount = roundCurrencyValue(preDiscountCharge * (discountPercent / 100.0));
+        double finalAmount = roundCurrencyValue(preDiscountCharge - discountAmount);
+
+        RentalAgreement rentalAgreement = new RentalAgreement(
+                rentedTool,
+                checkoutDate,
+                dueDate,
+                numRentalDays,
+                numChargeDays,
+                discountPercent,
+                preDiscountCharge,
+                discountAmount,
+                finalAmount
+        );
+
+        return rentalAgreement;
+    }
+
+    /**
+     * Runs the checkout process which asks the user to provide input that will
+     * be used to complete the checkout process.
+     */
     public void checkout() {
         Scanner scanner = new Scanner(System.in);
         ToolCode code;
-        Tool rentedTool;
         int numRentalDays;
         int discountPercent;
         LocalDate checkoutDate;
@@ -233,41 +299,17 @@ public class Main {
         // End user input
         scanner.close();
 
-        // Set rented tool based on tool code provided.
-        switch (code) {
-            case CHNS -> rentedTool = new Chainsaw();
-            case LADW -> rentedTool = new Ladder();
-            default -> rentedTool = new Jackhammer(code);
+        try {
+            RentalAgreement rentalAgreement = generateRentalAgreement(code, numRentalDays, discountPercent, checkoutDate);
+            System.out.println(); // add newline before rental agreement is printed
+            rentalAgreement.printRentalAgreement();
+        } catch (Exception e) {
+            System.out.println(e.getMessage());
         }
-
-        // Set due date to numRentalDays after the checkout date
-        LocalDate dueDate = checkoutDate.plusDays(numRentalDays);
-
-        // Calculate the number of days charges apply, from day after rental through due date.
-        int numChargeDays = getNumChargeDays(numRentalDays, rentedTool, checkoutDate, dueDate);
-
-        double preDiscountCharge = roundCurrencyValue(rentedTool.dailyCharge * numChargeDays);
-        double discountAmount = roundCurrencyValue(preDiscountCharge * (discountPercent / 100.0));
-        double finalAmount = roundCurrencyValue(preDiscountCharge - discountAmount);
-
-        RentalAgreement rentalAgreement = new RentalAgreement(
-                rentedTool,
-                checkoutDate,
-                dueDate,
-                numRentalDays,
-                numChargeDays,
-                discountPercent,
-                preDiscountCharge,
-                discountAmount,
-                finalAmount
-        );
-
-        System.out.println(); // add newline before rental agreement is printed
-        rentalAgreement.printRentalAgreement();
     }
 
     public static void main(String[] args) {
-        Main toolRental = new Main();
+        ToolRental toolRental = new ToolRental();
         toolRental.checkout();
     }
 }
