@@ -220,7 +220,7 @@ public class ToolRental {
         double discountAmount = roundCurrencyValue(preDiscountCharge * (discountPercent / 100.0));
         double finalAmount = roundCurrencyValue(preDiscountCharge - discountAmount);
 
-        RentalAgreement rentalAgreement = new RentalAgreement(
+        return new RentalAgreement(
                 rentedTool,
                 checkoutDate,
                 dueDate,
@@ -231,8 +231,6 @@ public class ToolRental {
                 discountAmount,
                 finalAmount
         );
-
-        return rentalAgreement;
     }
 
     /**
